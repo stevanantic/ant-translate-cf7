@@ -1,0 +1,15 @@
+.DS_Store
+.git
+.gitignore
+.distignore
+.cursorignore
+.cursorrules
+*.md
+!readme.txt
+node_modules
+.env
+*.log
+phpunit.xml
+.phpcs.xml.dist
+tests/
+bin/
