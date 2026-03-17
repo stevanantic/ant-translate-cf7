@@ -134,7 +134,8 @@ function ant_st_cf7_should_translate(): bool
     }
 
     // REST/AJAX: only translate if this is an actual CF7 submission.
-    if (wp_is_serving_rest_request() || (defined('DOING_AJAX') && DOING_AJAX)) {
+    $is_rest = function_exists('wp_is_serving_rest_request') ? wp_is_serving_rest_request() : (defined('REST_REQUEST') && REST_REQUEST);
+    if ($is_rest || (defined('DOING_AJAX') && DOING_AJAX)) {
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- read-only check
         $is_cf7_submission = isset($_POST['_wpcf7']) || isset($_POST['_wpcf7_version']) || isset($_POST['_wpcf7_unit_tag']);
 
@@ -491,6 +492,17 @@ add_filter('wpcf7_mail_components', function ($components, $form, $mail) {
         return $components;
     }
 
+    // Skip if property filters already translated (prevents double-translation).
+    // The property_mail filter runs during form construction; mail_components fires
+    // at send time. The translation cache makes double-translation idempotent for
+    // most strings, but this guard avoids the overhead entirely.
+    static $property_translated = [];
+    $form_id = is_object($form) && method_exists($form, 'id') ? $form->id() : 0;
+    if (isset($property_translated[$form_id])) {
+        return $components;
+    }
+    $property_translated[$form_id] = true;
+
     if (isset($components['subject']) && is_string($components['subject'])) {
         $components['subject'] = ant_st_cf7_safe_translate_mail_text($components['subject']);
     }
@@ -603,22 +615,21 @@ add_filter('ant_st_one_click_catalog_strings', function (array $strings, array $
  * can be filtered/segregated by language.
  * ========================================================================== */
 
-add_action('wpcf7_submit', function ($form, $result) {
-    if (!class_exists('Flamingo_Inbound_Message') || !function_exists('ant_st_current_lang')) {
-        return;
+// Tag Flamingo submissions with the submission language.
+// Uses save_post hook instead of flamingo_add_inbound_message (which passes
+// an array, not a post ID) to reliably get the Flamingo message post ID.
+add_action('save_post_flamingo_inbound', function ($post_id, $post, $update) {
+    if ($update || !function_exists('ant_st_current_lang')) {
+        return; // Only tag new submissions, not edits.
     }
-
     $lang = ant_st_current_lang();
     if ($lang === '') {
-        return;
+        // Fallback: check referer for language slug.
+        $lang = ant_st_cf7_referer_is_target_lang() && function_exists('ant_st_lang_slug')
+            ? ant_st_lang_slug()
+            : '';
     }
-
-    // Flamingo saves the message after this hook — we hook into its save action.
-    add_action('flamingo_add_inbound_message', function ($args) use ($lang) {
-        // $args can be the message ID or the message array depending on Flamingo version.
-        $message_id = is_numeric($args) ? (int) $args : 0;
-        if ($message_id > 0) {
-            update_post_meta($message_id, '_ant_st_submission_language', sanitize_key($lang));
-        }
-    });
-}, 10, 2);
+    if ($lang !== '') {
+        update_post_meta($post_id, '_ant_st_submission_language', sanitize_key($lang));
+    }
+}, 10, 3);
