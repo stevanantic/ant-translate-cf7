@@ -497,11 +497,13 @@ add_filter('wpcf7_mail_components', function ($components, $form, $mail) {
     // at send time. The translation cache makes double-translation idempotent for
     // most strings, but this guard avoids the overhead entirely.
     static $property_translated = [];
-    $form_id = is_object($form) && method_exists($form, 'id') ? $form->id() : 0;
-    if (isset($property_translated[$form_id])) {
+    $form_id   = is_object($form) && method_exists($form, 'id') ? $form->id() : 0;
+    $mail_name = is_object($mail) && method_exists($mail, 'name') ? $mail->name() : '';
+    $skip_key  = $form_id . ':' . $mail_name;
+    if (isset($property_translated[$skip_key])) {
         return $components;
     }
-    $property_translated[$form_id] = true;
+    $property_translated[$skip_key] = true;
 
     if (isset($components['subject']) && is_string($components['subject'])) {
         $components['subject'] = ant_st_cf7_safe_translate_mail_text($components['subject']);
