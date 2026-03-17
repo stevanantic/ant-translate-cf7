@@ -3,7 +3,8 @@
  * Plugin Name:       ANT Translate for Contact Form 7
  * Plugin URI:        https://eleviosolutions.com/ant-translate-cf7/
  * Description:       Contact Form 7 integration for ANT Translate – translates form fields, mail templates (with CF7 tag safety), messages, and AJAX responses.
- * Version:           2.0.0
+ * Version:           3.0.0
+ * CF7 requires at least: 5.2
  * Requires at least: 5.8
  * Requires PHP:      7.4
  * Author:            Elevio Solutions
@@ -21,7 +22,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('ANT_ST_CF7_VERSION', '2.0.0');
+define('ANT_ST_CF7_VERSION', '3.0.0');
 define('ANT_ST_CF7_FILE', __FILE__);
 define('ANT_ST_CF7_DIR', plugin_dir_path(__FILE__));
 define('ANT_ST_CF7_URL', plugin_dir_url(__FILE__));

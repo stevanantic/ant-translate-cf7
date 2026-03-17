@@ -37,8 +37,13 @@ function ant_st_cf7_translate(string $text): string
 {
     static $cache = [];
 
-    if ($text === '' || !function_exists('ant_st_translate_plain')) {
+    if ($text === '' || mb_strlen($text, 'UTF-8') < 2 || !function_exists('ant_st_translate_plain')) {
         return $text;
+    }
+
+    // Prevent unbounded cache growth.
+    if (count($cache) > 2000) {
+        $cache = array_slice($cache, -1000, null, true);
     }
 
     if (isset($cache[$text])) {
@@ -105,39 +110,49 @@ function ant_st_cf7_referer_is_target_lang(): bool
  */
 function ant_st_cf7_should_translate(): bool
 {
+    // Static cache — evaluated once per request context.
+    static $result = null;
+    if ($result !== null) {
+        return $result;
+    }
+
     // Never translate in the admin editor (form edit screen).
     if (is_admin() && !(defined('DOING_AJAX') && DOING_AJAX)) {
+        $result = false;
         return false;
     }
 
     if (!function_exists('ant_st_current_lang') || !function_exists('ant_st_lang_slug')) {
+        $result = false;
         return false;
     }
 
     // Direct URL match (normal page load on /en/).
     if (ant_st_current_lang() === ant_st_lang_slug()) {
+        $result = true;
         return true;
     }
 
     // REST/AJAX: only translate if this is an actual CF7 submission.
     if (wp_is_serving_rest_request() || (defined('DOING_AJAX') && DOING_AJAX)) {
-        // Check for CF7 submission context.
         // phpcs:ignore WordPress.Security.NonceVerification.Missing -- read-only check
         $is_cf7_submission = isset($_POST['_wpcf7']) || isset($_POST['_wpcf7_version']) || isset($_POST['_wpcf7_unit_tag']);
 
         if (!$is_cf7_submission) {
-            // Also check REST route pattern for CF7 5.6+ REST API.
             $rest_route = isset($_SERVER['REQUEST_URI']) ? sanitize_text_field(wp_unslash($_SERVER['REQUEST_URI'])) : '';
             $is_cf7_submission = (strpos($rest_route, '/contact-form-7/') !== false);
         }
 
         if (!$is_cf7_submission) {
+            $result = false;
             return false;
         }
 
-        return ant_st_cf7_referer_is_target_lang();
+        $result = ant_st_cf7_referer_is_target_lang();
+        return $result;
     }
 
+    $result = false;
     return false;
 }
 
@@ -335,6 +350,10 @@ add_filter('wpcf7_contact_form_property_mail_2', function ($prop, $contact_form)
     if (!is_array($prop)) {
         return $prop;
     }
+    // Only translate mail_2 when it's active.
+    if (isset($prop['active']) && !$prop['active']) {
+        return $prop;
+    }
     return ant_st_cf7_translate_mail_safe($prop);
 }, 10, 2);
 
@@ -459,3 +478,147 @@ add_filter('wpcf7_refill_response', function ($response) {
 
     return $response;
 }, 10);
+
+/* ==========================================================================
+ * 7. V4: Mail components safety net.
+ *
+ * Fires right before wp_mail() — catches dynamic content that was added
+ * after property filters (e.g., by other plugins modifying mail components).
+ * ========================================================================== */
+
+add_filter('wpcf7_mail_components', function ($components, $form, $mail) {
+    if (!ant_st_cf7_should_translate() || !is_array($components)) {
+        return $components;
+    }
+
+    if (isset($components['subject']) && is_string($components['subject'])) {
+        $components['subject'] = ant_st_cf7_safe_translate_mail_text($components['subject']);
+    }
+    if (isset($components['body']) && is_string($components['body'])) {
+        $components['body'] = ant_st_cf7_safe_translate_mail_text($components['body']);
+    }
+    // Never touch: recipient, additional_headers, attachments.
+    return $components;
+}, 20, 3);
+
+/* ==========================================================================
+ * 8. V4: One-Click Translate — Register CF7 strings with core catalog.
+ *
+ * Injects form labels, messages, and mail template text into the
+ * One-Click translate flow.
+ * ========================================================================== */
+
+add_filter('ant_st_one_click_catalog_strings', function (array $strings, array $seen) {
+    if (!function_exists('wpcf7_contact_form')) {
+        return $strings;
+    }
+
+    static $cf7_extra = null;
+    if ($cf7_extra !== null) {
+        foreach ($cf7_extra as $entry) {
+            $key = md5($entry['text']);
+            if (!isset($seen[$key])) {
+                $strings[] = $entry;
+            }
+        }
+        return $strings;
+    }
+
+    $cf7_extra = [];
+    $start_count = count($strings);
+
+    $form_ids = get_posts([
+        'post_type'   => 'wpcf7_contact_form',
+        'post_status' => 'any',
+        'numberposts' => 200,
+        'fields'      => 'ids',
+    ]);
+
+    foreach ($form_ids as $form_id) {
+        $cf7 = wpcf7_contact_form($form_id);
+        if (!$cf7) {
+            continue;
+        }
+
+        // Form template text (labels, placeholders — strip CF7 tags).
+        $form_text = $cf7->prop('form');
+        if (is_string($form_text)) {
+            $plain = trim(wp_strip_all_tags(preg_replace('/\[[^\]]+\]/', '', $form_text)));
+            foreach (preg_split('/[\r\n]+/', $plain) as $line) {
+                $line = trim($line);
+                $key  = md5($line);
+                if ($line !== '' && mb_strlen($line) >= 2 && !isset($seen[$key])) {
+                    $seen[$key] = true;
+                    $strings[]  = ['text' => $line, 'context' => 'cf7:' . $form_id, 'priority' => 2];
+                }
+            }
+        }
+
+        // Messages (validation, success, error).
+        $messages = $cf7->prop('messages');
+        if (is_array($messages)) {
+            foreach ($messages as $msg) {
+                if (!is_string($msg) || $msg === '') {
+                    continue;
+                }
+                $key = md5($msg);
+                if (!isset($seen[$key])) {
+                    $seen[$key] = true;
+                    $strings[]  = ['text' => $msg, 'context' => 'cf7:messages', 'priority' => 2];
+                }
+            }
+        }
+
+        // Mail subject + body (strip CF7 tags for translatable text).
+        foreach (['mail', 'mail_2'] as $mail_prop) {
+            $mail = $cf7->prop($mail_prop);
+            if (!is_array($mail)) {
+                continue;
+            }
+            if ($mail_prop === 'mail_2' && empty($mail['active'])) {
+                continue;
+            }
+            foreach (['subject', 'body'] as $field) {
+                if (!isset($mail[$field]) || !is_string($mail[$field])) {
+                    continue;
+                }
+                $text = trim(wp_strip_all_tags(preg_replace('/\[[^\]]+\]/', '', $mail[$field])));
+                $key  = md5($text);
+                if ($text !== '' && mb_strlen($text) >= 3 && !isset($seen[$key])) {
+                    $seen[$key] = true;
+                    $strings[]  = ['text' => $text, 'context' => 'cf7:mail', 'priority' => 3];
+                }
+            }
+        }
+    }
+
+    $cf7_extra = array_slice($strings, $start_count);
+    return $strings;
+}, 10, 2);
+
+/* ==========================================================================
+ * 9. V4: Flamingo language tagging.
+ *
+ * Tags CF7 submissions with the current language so Flamingo messages
+ * can be filtered/segregated by language.
+ * ========================================================================== */
+
+add_action('wpcf7_submit', function ($form, $result) {
+    if (!class_exists('Flamingo_Inbound_Message') || !function_exists('ant_st_current_lang')) {
+        return;
+    }
+
+    $lang = ant_st_current_lang();
+    if ($lang === '') {
+        return;
+    }
+
+    // Flamingo saves the message after this hook — we hook into its save action.
+    add_action('flamingo_add_inbound_message', function ($args) use ($lang) {
+        // $args can be the message ID or the message array depending on Flamingo version.
+        $message_id = is_numeric($args) ? (int) $args : 0;
+        if ($message_id > 0) {
+            update_post_meta($message_id, '_ant_st_submission_language', sanitize_key($lang));
+        }
+    });
+}, 10, 2);
