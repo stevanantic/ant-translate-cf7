@@ -3,7 +3,7 @@ Contributors: eleviosolutions
 Tags: translation, contact form 7, cf7, multilingual
 Requires at least: 5.8
 Tested up to: 6.9
-Stable tag: 1.1.0
+Stable tag: 3.0.0
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
