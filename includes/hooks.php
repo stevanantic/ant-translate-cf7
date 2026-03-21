@@ -635,3 +635,46 @@ add_action('save_post_flamingo_inbound', function ($post_id, $post, $update) {
         update_post_meta($post_id, '_ant_st_submission_language', sanitize_key($lang));
     }
 }, 10, 3);
+
+/* ==========================================================================
+ * PG-25: Addon-Specific Context for Contribute Buffer.
+ *
+ * Injects CF7-specific context into the contribute buffer
+ * (e.g. cf7:label, cf7:placeholder, cf7:message, cf7:mail_subject).
+ * This helps Cloud TM apply form-context-aware quality scoring.
+ * ========================================================================== */
+
+add_filter('ant_st_contribute_context', function ($context, $text, $meta) {
+    // Only override if context is still generic.
+    if ($context !== 'general') {
+        return $context;
+    }
+
+    // Only activate when CF7 is loaded.
+    if (!defined('WPCF7_VERSION')) {
+        return $context;
+    }
+
+    // Check the field map for text → field type mapping.
+    $form_map = get_option('ant_st_cf7_field_map', []);
+    if (!empty($form_map) && is_array($form_map)) {
+        foreach ($form_map as $field_type => $texts) {
+            if (is_array($texts) && in_array($text, $texts, true)) {
+                return 'cf7:' . sanitize_key($field_type);
+            }
+        }
+    }
+
+    // Heuristic detection based on active CF7 filters.
+    if (doing_filter('wpcf7_form_elements')) {
+        return 'cf7:form_element';
+    }
+    if (doing_filter('wpcf7_mail_components') || doing_action('wpcf7_before_send_mail')) {
+        return 'cf7:mail';
+    }
+    if (doing_filter('wpcf7_display_message') || doing_filter('wpcf7_feedback_response')) {
+        return 'cf7:message';
+    }
+
+    return $context;
+}, 10, 3);

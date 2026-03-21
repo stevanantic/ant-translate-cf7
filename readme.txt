@@ -1,5 +1,5 @@
 === ANT Translate for Contact Form 7 ===
-Contributors: eleviosolutions
+Contributors: polyglottranslate
 Tags: translation, contact form 7, cf7, multilingual
 Requires at least: 5.8
 Tested up to: 6.9

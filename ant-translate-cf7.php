@@ -1,14 +1,14 @@
 <?php
 /**
  * Plugin Name:       ANT Translate for Contact Form 7
- * Plugin URI:        https://eleviosolutions.com/ant-translate-cf7/
+ * Plugin URI:        https://polyglot-translate.cloud/wordpress-plugin/addons/cf7/
  * Description:       Contact Form 7 integration for ANT Translate – translates form fields, mail templates (with CF7 tag safety), messages, and AJAX responses.
  * Version:           3.0.0
  * CF7 requires at least: 5.2
  * Requires at least: 5.8
  * Requires PHP:      7.4
- * Author:            Elevio Solutions
- * Author URI:        https://eleviosolutions.com/
+ * Author:            Polyglot Translate
+ * Author URI:        https://polyglot-translate.cloud/
  * License:           GPL-2.0-or-later
  * Text Domain:       ant-translate-cf7
  * Domain Path:       /languages
