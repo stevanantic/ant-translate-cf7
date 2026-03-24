@@ -14,7 +14,7 @@
  *  - Conditional Fields placeholder block removed (was a no-op).
  *  - i18n: load_plugin_textdomain added in main file.
  *
- * @package ANT_Translate_CF7
+ * @package PGT_Translate_CF7
  * @since   2.0.0
  * @license GPL-2.0-or-later
  */
@@ -33,11 +33,11 @@ if (!defined('ABSPATH')) {
  * @param string $text Source text.
  * @return string Translated text.
  */
-function ant_st_cf7_translate(string $text): string
+function polyglot_cf7_translate(string $text): string
 {
     static $cache = [];
 
-    if ($text === '' || mb_strlen($text, 'UTF-8') < 2 || !function_exists('ant_st_translate_plain')) {
+    if ($text === '' || mb_strlen($text, 'UTF-8') < 2 || !function_exists('polyglot_translate_plain')) {
         return $text;
     }
 
@@ -50,7 +50,7 @@ function ant_st_cf7_translate(string $text): string
         return $cache[$text];
     }
 
-    $translated = ant_st_translate_plain($text);
+    $translated = polyglot_translate_plain($text);
     $cache[$text] = is_string($translated) && $translated !== '' ? $translated : $text;
 
     return $cache[$text];
@@ -69,12 +69,12 @@ function ant_st_cf7_translate(string $text): string
  *
  * @return bool True if the referer URL contains the target language slug.
  */
-function ant_st_cf7_referer_is_target_lang(): bool
+function polyglot_cf7_referer_is_target_lang(): bool
 {
-    if (!function_exists('ant_st_lang_slug')) {
+    if (!function_exists('polyglot_lang_slug')) {
         return false;
     }
-    $slug = ant_st_lang_slug();
+    $slug = polyglot_lang_slug();
     if ($slug === '') {
         return false;
     }
@@ -108,7 +108,7 @@ function ant_st_cf7_referer_is_target_lang(): bool
  * In AJAX context, only translates if this is an actual CF7 form submission
  * (checks for _wpcf7 POST field), not random admin AJAX requests.
  */
-function ant_st_cf7_should_translate(): bool
+function polyglot_cf7_should_translate(): bool
 {
     // Static cache — evaluated once per request context.
     static $result = null;
@@ -122,13 +122,13 @@ function ant_st_cf7_should_translate(): bool
         return false;
     }
 
-    if (!function_exists('ant_st_current_lang') || !function_exists('ant_st_lang_slug')) {
+    if (!function_exists('polyglot_current_lang') || !function_exists('polyglot_lang_slug')) {
         $result = false;
         return false;
     }
 
     // Direct URL match (normal page load on /en/).
-    if (ant_st_current_lang() === ant_st_lang_slug()) {
+    if (polyglot_current_lang() === polyglot_lang_slug()) {
         $result = true;
         return true;
     }
@@ -149,7 +149,7 @@ function ant_st_cf7_should_translate(): bool
             return false;
         }
 
-        $result = ant_st_cf7_referer_is_target_lang();
+        $result = polyglot_cf7_referer_is_target_lang();
         return $result;
     }
 
@@ -171,14 +171,14 @@ function ant_st_cf7_should_translate(): bool
  * @param string $text Input text with CF7 [tags].
  * @return array{0: string, 1: array<string, string>} [masked_text, tag_map]
  */
-function ant_st_cf7_mask_tags(string $text): array
+function polyglot_cf7_mask_tags(string $text): array
 {
     $map = [];
     $counter = 0;
 
     $masked = preg_replace_callback('/\[[^\]]+\]/', function ($match) use (&$map, &$counter) {
         $counter++;
-        $placeholder = '{{ANT_CF7_TAG_' . $counter . '}}';
+        $placeholder = '{{PGT_CF7_TAG_' . $counter . '}}';
         $map[$placeholder] = $match[0];
         return $placeholder;
     }, $text);
@@ -193,7 +193,7 @@ function ant_st_cf7_mask_tags(string $text): array
  * @param array<string, string>    $tag_map Placeholder => original tag map.
  * @return string Text with CF7 tags restored.
  */
-function ant_st_cf7_unmask_tags(string $text, array $tag_map): string
+function polyglot_cf7_unmask_tags(string $text, array $tag_map): string
 {
     if (empty($tag_map)) {
         return $text;
@@ -207,7 +207,7 @@ function ant_st_cf7_unmask_tags(string $text, array $tag_map): string
  * @param string $text Mail template text.
  * @return string Translated text with CF7 tags preserved.
  */
-function ant_st_cf7_safe_translate_mail_text(string $text): string
+function polyglot_cf7_safe_translate_mail_text(string $text): string
 {
     if ($text === '') {
         return $text;
@@ -224,9 +224,9 @@ function ant_st_cf7_safe_translate_mail_text(string $text): string
     }
 
     // Mask CF7 tags, translate the human text, then restore tags.
-    list($masked, $tag_map) = ant_st_cf7_mask_tags($text);
-    $translated = ant_st_cf7_translate($masked);
-    return ant_st_cf7_unmask_tags($translated, $tag_map);
+    list($masked, $tag_map) = polyglot_cf7_mask_tags($text);
+    $translated = polyglot_cf7_translate($masked);
+    return polyglot_cf7_unmask_tags($translated, $tag_map);
 }
 
 /* ==========================================================================
@@ -240,10 +240,10 @@ add_filter('wpcf7_form_elements', function ($elements) {
     if (!is_string($elements) || $elements === '') {
         return $elements;
     }
-    if (!ant_st_cf7_should_translate()) {
+    if (!polyglot_cf7_should_translate()) {
         return $elements;
     }
-    if (!function_exists('ant_st_translate_html_text_nodes')) {
+    if (!function_exists('polyglot_translate_html_text_nodes')) {
         return $elements;
     }
 
@@ -255,7 +255,7 @@ add_filter('wpcf7_form_elements', function ($elements) {
         return $html_cache[$hash];
     }
 
-    $out = ant_st_translate_html_text_nodes($elements);
+    $out = polyglot_translate_html_text_nodes($elements);
     if (is_string($out) && $out !== '') {
         $html_cache[$hash] = $out;
         return $out;
@@ -287,21 +287,21 @@ add_filter('wpcf7_form_elements', function ($elements) {
  * @param array $prop Mail property array.
  * @return array Translated mail property.
  */
-function ant_st_cf7_translate_mail_safe(array $prop): array
+function polyglot_cf7_translate_mail_safe(array $prop): array
 {
     // Translate subject (safe — user-visible, may contain CF7 tags).
     if (isset($prop['subject']) && is_string($prop['subject'])) {
-        $prop['subject'] = ant_st_cf7_safe_translate_mail_text($prop['subject']);
+        $prop['subject'] = polyglot_cf7_safe_translate_mail_text($prop['subject']);
     }
 
     // Translate body (safe — user-visible, contains CF7 tags).
     if (isset($prop['body']) && is_string($prop['body'])) {
-        $prop['body'] = ant_st_cf7_safe_translate_mail_text($prop['body']);
+        $prop['body'] = polyglot_cf7_safe_translate_mail_text($prop['body']);
     }
 
     // Translate sender display name only (before the < email > part).
     if (isset($prop['sender']) && is_string($prop['sender'])) {
-        $prop['sender'] = ant_st_cf7_translate_sender_name($prop['sender']);
+        $prop['sender'] = polyglot_cf7_translate_sender_name($prop['sender']);
     }
 
     return $prop;
@@ -316,7 +316,7 @@ function ant_st_cf7_translate_mail_safe(array $prop): array
  * @param string $sender Full sender string.
  * @return string Sender with translated display name.
  */
-function ant_st_cf7_translate_sender_name(string $sender): string
+function polyglot_cf7_translate_sender_name(string $sender): string
 {
     // Pattern: "Display Name <email@or.cf7.tag>"
     if (preg_match('/^(.+?)\s*(<.+>)$/', $sender, $m)) {
@@ -324,7 +324,7 @@ function ant_st_cf7_translate_sender_name(string $sender): string
         $email_part   = $m[2];
 
         if ($display_name !== '') {
-            $display_name = ant_st_cf7_safe_translate_mail_text($display_name);
+            $display_name = polyglot_cf7_safe_translate_mail_text($display_name);
         }
 
         return $display_name . ' ' . $email_part;
@@ -335,17 +335,17 @@ function ant_st_cf7_translate_sender_name(string $sender): string
 }
 
 add_filter('wpcf7_contact_form_property_mail', function ($prop, $contact_form) {
-    if (!ant_st_cf7_should_translate()) {
+    if (!polyglot_cf7_should_translate()) {
         return $prop;
     }
     if (!is_array($prop)) {
         return $prop;
     }
-    return ant_st_cf7_translate_mail_safe($prop);
+    return polyglot_cf7_translate_mail_safe($prop);
 }, 10, 2);
 
 add_filter('wpcf7_contact_form_property_mail_2', function ($prop, $contact_form) {
-    if (!ant_st_cf7_should_translate()) {
+    if (!polyglot_cf7_should_translate()) {
         return $prop;
     }
     if (!is_array($prop)) {
@@ -355,7 +355,7 @@ add_filter('wpcf7_contact_form_property_mail_2', function ($prop, $contact_form)
     if (isset($prop['active']) && !$prop['active']) {
         return $prop;
     }
-    return ant_st_cf7_translate_mail_safe($prop);
+    return polyglot_cf7_translate_mail_safe($prop);
 }, 10, 2);
 
 /* ==========================================================================
@@ -363,7 +363,7 @@ add_filter('wpcf7_contact_form_property_mail_2', function ($prop, $contact_form)
  * ========================================================================== */
 
 add_filter('wpcf7_contact_form_property_messages', function ($prop, $contact_form) {
-    if (!ant_st_cf7_should_translate()) {
+    if (!polyglot_cf7_should_translate()) {
         return $prop;
     }
     if (!is_array($prop)) {
@@ -373,7 +373,7 @@ add_filter('wpcf7_contact_form_property_messages', function ($prop, $contact_for
     $out = [];
     foreach ($prop as $key => $msg) {
         if (is_string($msg) && $msg !== '') {
-            $out[$key] = ant_st_cf7_translate($msg);
+            $out[$key] = polyglot_cf7_translate($msg);
         } else {
             $out[$key] = $msg;
         }
@@ -389,10 +389,10 @@ add_filter('wpcf7_display_message', function ($message, $status) {
     if (!is_string($message) || $message === '') {
         return $message;
     }
-    if (!ant_st_cf7_should_translate()) {
+    if (!polyglot_cf7_should_translate()) {
         return $message;
     }
-    return ant_st_cf7_translate($message);
+    return polyglot_cf7_translate($message);
 }, 10, 2);
 
 /* ==========================================================================
@@ -411,7 +411,7 @@ add_filter('wpcf7_display_message', function ($message, $status) {
  * @param array $response Response data.
  * @return array Translated response.
  */
-function ant_st_cf7_translate_response(array $response): array
+function polyglot_cf7_translate_response(array $response): array
 {
     static $already_translated = false;
 
@@ -419,20 +419,20 @@ function ant_st_cf7_translate_response(array $response): array
         return $response;
     }
 
-    if (!ant_st_cf7_should_translate()) {
+    if (!polyglot_cf7_should_translate()) {
         return $response;
     }
 
     // Translate the main response message.
     if (isset($response['message']) && is_string($response['message']) && $response['message'] !== '') {
-        $response['message'] = ant_st_cf7_translate($response['message']);
+        $response['message'] = polyglot_cf7_translate($response['message']);
     }
 
     // Translate validation error messages in invalid_fields.
     if (isset($response['invalid_fields']) && is_array($response['invalid_fields'])) {
         foreach ($response['invalid_fields'] as &$field) {
             if (is_array($field) && isset($field['message']) && is_string($field['message']) && $field['message'] !== '') {
-                $field['message'] = ant_st_cf7_translate($field['message']);
+                $field['message'] = polyglot_cf7_translate($field['message']);
             }
         }
         unset($field);
@@ -448,7 +448,7 @@ add_filter('wpcf7_feedback_response', function ($response, $result) {
     if (!is_array($response)) {
         return $response;
     }
-    return ant_st_cf7_translate_response($response);
+    return polyglot_cf7_translate_response($response);
 }, 10, 2);
 
 // FALLBACK: wpcf7_ajax_json_echo (for CF7 < 5.2 backward compat).
@@ -457,7 +457,7 @@ add_filter('wpcf7_ajax_json_echo', function ($response, $result) {
     if (!is_array($response)) {
         return $response;
     }
-    return ant_st_cf7_translate_response($response);
+    return polyglot_cf7_translate_response($response);
 }, 10, 2);
 
 /* ==========================================================================
@@ -468,13 +468,13 @@ add_filter('wpcf7_ajax_json_echo', function ($response, $result) {
  * ========================================================================== */
 
 add_filter('wpcf7_refill_response', function ($response) {
-    if (!is_array($response) || !ant_st_cf7_should_translate()) {
+    if (!is_array($response) || !polyglot_cf7_should_translate()) {
         return $response;
     }
 
     // Translate any string 'message' fields in the refill (rare but possible).
     if (isset($response['message']) && is_string($response['message']) && $response['message'] !== '') {
-        $response['message'] = ant_st_cf7_translate($response['message']);
+        $response['message'] = polyglot_cf7_translate($response['message']);
     }
 
     return $response;
@@ -488,7 +488,7 @@ add_filter('wpcf7_refill_response', function ($response) {
  * ========================================================================== */
 
 add_filter('wpcf7_mail_components', function ($components, $form, $mail) {
-    if (!ant_st_cf7_should_translate() || !is_array($components)) {
+    if (!polyglot_cf7_should_translate() || !is_array($components)) {
         return $components;
     }
 
@@ -506,10 +506,10 @@ add_filter('wpcf7_mail_components', function ($components, $form, $mail) {
     $property_translated[$skip_key] = true;
 
     if (isset($components['subject']) && is_string($components['subject'])) {
-        $components['subject'] = ant_st_cf7_safe_translate_mail_text($components['subject']);
+        $components['subject'] = polyglot_cf7_safe_translate_mail_text($components['subject']);
     }
     if (isset($components['body']) && is_string($components['body'])) {
-        $components['body'] = ant_st_cf7_safe_translate_mail_text($components['body']);
+        $components['body'] = polyglot_cf7_safe_translate_mail_text($components['body']);
     }
     // Never touch: recipient, additional_headers, attachments.
     return $components;
@@ -522,7 +522,7 @@ add_filter('wpcf7_mail_components', function ($components, $form, $mail) {
  * One-Click translate flow.
  * ========================================================================== */
 
-add_filter('ant_st_one_click_catalog_strings', function (array $strings, array $seen) {
+add_filter('polyglot_one_click_catalog_strings', function (array $strings, array $seen) {
     if (!function_exists('wpcf7_contact_form')) {
         return $strings;
     }
@@ -621,18 +621,18 @@ add_filter('ant_st_one_click_catalog_strings', function (array $strings, array $
 // Uses save_post hook instead of flamingo_add_inbound_message (which passes
 // an array, not a post ID) to reliably get the Flamingo message post ID.
 add_action('save_post_flamingo_inbound', function ($post_id, $post, $update) {
-    if ($update || !function_exists('ant_st_current_lang')) {
+    if ($update || !function_exists('polyglot_current_lang')) {
         return; // Only tag new submissions, not edits.
     }
-    $lang = ant_st_current_lang();
+    $lang = polyglot_current_lang();
     if ($lang === '') {
         // Fallback: check referer for language slug.
-        $lang = ant_st_cf7_referer_is_target_lang() && function_exists('ant_st_lang_slug')
-            ? ant_st_lang_slug()
+        $lang = polyglot_cf7_referer_is_target_lang() && function_exists('polyglot_lang_slug')
+            ? polyglot_lang_slug()
             : '';
     }
     if ($lang !== '') {
-        update_post_meta($post_id, '_ant_st_submission_language', sanitize_key($lang));
+        update_post_meta($post_id, '_polyglot_submission_language', sanitize_key($lang));
     }
 }, 10, 3);
 
@@ -644,7 +644,7 @@ add_action('save_post_flamingo_inbound', function ($post_id, $post, $update) {
  * This helps Cloud TM apply form-context-aware quality scoring.
  * ========================================================================== */
 
-add_filter('ant_st_contribute_context', function ($context, $text, $meta) {
+add_filter('polyglot_contribute_context', function ($context, $text, $meta) {
     // Only override if context is still generic.
     if ($context !== 'general') {
         return $context;
@@ -656,7 +656,7 @@ add_filter('ant_st_contribute_context', function ($context, $text, $meta) {
     }
 
     // Check the field map for text → field type mapping.
-    $form_map = get_option('ant_st_cf7_field_map', []);
+    $form_map = get_option('polyglot_cf7_field_map', []);
     if (!empty($form_map) && is_array($form_map)) {
         foreach ($form_map as $field_type => $texts) {
             if (is_array($texts) && in_array($text, $texts, true)) {
