@@ -37,25 +37,26 @@ if (!function_exists('polyglot_cf7_maybe_migrate')) {
             return;
         }
 
-        // Migrate license key (free addon, but option may exist).
+        // Options migration — always completes in one pass (idempotent).
         $old_lic = get_option('ant_st_addon_lic_cf7');
         if ($old_lic !== false) {
             update_option('polyglot_addon_lic_cf7', $old_lic);
             delete_option('ant_st_addon_lic_cf7');
         }
-
-        // Migrate field map option.
         $old_map = get_option('ant_st_cf7_field_map');
         if ($old_map !== false) {
             update_option('polyglot_cf7_field_map', $old_map);
             delete_option('ant_st_cf7_field_map');
         }
 
-        // Migrate Flamingo submission language meta (batch, max 500).
+        // Flamingo postmeta migration — batch 500, reruns until complete.
         global $wpdb;
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery
         $rows = (int) $wpdb->query(
-            "UPDATE {$wpdb->postmeta} SET meta_key = '_polyglot_submission_language' WHERE meta_key = '_ant_st_submission_language' LIMIT 500"
+            $wpdb->prepare(
+                "UPDATE {$wpdb->postmeta} SET meta_key = %s WHERE meta_key = %s LIMIT 500",
+                '_polyglot_submission_language',
+                '_ant_st_submission_language'
+            )
         );
 
         if ($rows === 0) {

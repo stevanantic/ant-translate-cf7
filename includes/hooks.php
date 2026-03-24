@@ -1,6 +1,6 @@
 <?php
 /**
- * ANT Translate for Contact Form 7 – translation hooks (v2.0 refactor).
+ * Polyglot Translate for Contact Form 7 – translation hooks (v2.0 refactor).
  *
  * Changes from v1.x:
  *  - wpcf7_feedback_response (CF7 5.2+) as primary AJAX hook, with
@@ -478,7 +478,7 @@ add_filter('wpcf7_refill_response', function ($response) {
     }
 
     return $response;
-}, 10);
+}, 10, 1);
 
 /* ==========================================================================
  * 7. V4: Mail components safety net.
@@ -492,10 +492,9 @@ add_filter('wpcf7_mail_components', function ($components, $form, $mail) {
         return $components;
     }
 
-    // Skip if property filters already translated (prevents double-translation).
-    // The property_mail filter runs during form construction; mail_components fires
-    // at send time. The translation cache makes double-translation idempotent for
-    // most strings, but this guard avoids the overhead entirely.
+    // Prevent double-execution of mail_components for the same form within a single
+    // request. Property_mail also translates, but the translation cache makes it
+    // idempotent. This guard avoids re-processing overhead.
     static $property_translated = [];
     $form_id   = is_object($form) && method_exists($form, 'id') ? $form->id() : 0;
     $mail_name = is_object($mail) && method_exists($mail, 'name') ? $mail->name() : '';
