@@ -31,7 +31,7 @@ Polyglot Translate for Contact Form 7 integrates with Polyglot Translate to tran
 
 1. Install and activate Polyglot Translate (free base plugin).
 2. Install and activate Contact Form 7.
-3. Upload the `ant-translate-cf7` folder to `/wp-content/plugins/`.
+3. Upload the `polyglot-translate-cf7` folder to `/wp-content/plugins/`.
 4. Activate through the Plugins menu, or install directly from Polyglot Translate Settings > Addons.
 5. Run a site scan to discover CF7 form strings.
 

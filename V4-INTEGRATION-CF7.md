@@ -1,9 +1,13 @@
-# V4 Integration Plan — ANT Translate for Contact Form 7
+# V4 Integration Plan — Polyglot Translate for Contact Form 7
 
-> **Version:** 1.0 | **Created:** 2026-03-17 | **Current addon version:** 2.0.0
-> **Status:** PLANNED
+> **Version:** 1.0 | **Created:** 2026-03-17 | **Current addon version:** 3.1.0
+> **Status:** PARTIALLY IMPLEMENTED
 >
-> **Goal:** Close feature gaps with WPML/TranslatePress, integrate with ATC V4,
+> **HISTORICAL NOTE (2026-03-25):** This document was written before the v3.1.0 rebrand.
+> Code examples and hook/class names below use the legacy `ant_st_*` / `ANT_*` prefixes.
+> All public APIs have since been renamed to `polyglot_*` / `PGT_*`. Use current naming from CHANGELOG.md.
+>
+> **Goal:** Close feature gaps with WPML/TranslatePress, integrate with V4,
 > and ensure every CF7 form, mail template, and validation message translates
 > flawlessly — including AJAX responses, pipes, quizzes, and Flamingo.
 >
