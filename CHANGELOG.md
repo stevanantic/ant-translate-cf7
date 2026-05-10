@@ -1,5 +1,18 @@
 # Polyglot Translate CF7 – Changelog
 
+## [3.1.1] – 2026-05-10
+
+### Added
+- **`uninstall.php`** — clean cleanup script that removes CF7-addon-specific
+  options (`polyglot_cf7_settings`, `polyglot_cf7_field_map`, migration flag,
+  license option) and all `polyglot_cf7_*` transients via anchored
+  `DELETE … LIKE` SQL.
+- Runs on "Remove addon" with "Also remove all settings and data" checked (core
+  v6.1.6+ flow) or standard WP plugin delete.
+- **Explicit: this does NOT touch Contact Form 7's own data** (forms,
+  submissions, Flamingo logs). Only options created by this addon.
+- Companion `wp_cache_delete` for persistent object-cache backends.
+
 ## [3.1.0] – 2026-03-24
 
 ### Changed

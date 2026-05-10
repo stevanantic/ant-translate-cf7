@@ -3,7 +3,7 @@
  * Plugin Name:       Polyglot Translate for Contact Form 7
  * Plugin URI:        https://polyglot-translate.cloud/wordpress-plugin/addons/cf7/
  * Description:       Contact Form 7 integration for Polyglot Translate – translates form fields, mail templates (with CF7 tag safety), messages, and AJAX responses.
- * Version:           3.1.0
+ * Version:           3.1.1
  * CF7 requires at least: 5.2
  * Requires at least: 5.8
  * Requires PHP:      7.4
@@ -22,7 +22,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('POLYGLOT_CF7_VERSION', '3.1.0');
+define('POLYGLOT_CF7_VERSION', '3.1.1');
 define('POLYGLOT_CF7_FILE', __FILE__);
 define('POLYGLOT_CF7_DIR', plugin_dir_path(__FILE__));
 define('POLYGLOT_CF7_URL', plugin_dir_url(__FILE__));
