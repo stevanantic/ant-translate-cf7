@@ -1,0 +1,116 @@
+name: Release addon → Polyglot Cloud
+
+# Canonical addon-release workflow (SSOT lives in ant-translate-cloud:
+# docs/addon-release/release.yml). Deployed verbatim into every addon repo
+# (ant-translate-pro / -seo / -woocommerce / -elementor / -cf7).
+#
+# Flow: tag `vX.Y.Z` → build ZIP (build-zip.sh) → verify tag == plugin header
+# version → upload to the `polyglot-modules` R2 bucket. The cloud API's
+# listModuleVersions() then serves it as "latest" automatically, so every
+# connected WordPress plugin sees the update on its next /v1/updates/check poll.
+# No manual step, no cloud redeploy.
+#
+# Slug-agnostic: parses slug + version from the ZIP that build-zip.sh emits,
+# so the SAME file works unchanged in all five addon repos.
+#
+# Required repo secrets: ATC_R2_ACCOUNT_ID, ATC_R2_ACCESS_KEY_ID,
+# ATC_R2_SECRET_ACCESS_KEY (set once per repo; see docs/ADDON-RELEASE-PIPELINE.md).
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Build + lint only, do NOT publish to R2'
+        type: boolean
+        default: true
+
+concurrency:
+  group: addon-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP (for build-zip.sh lint)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+
+      - name: Build distribution ZIP
+        id: build
+        run: |
+          set -euo pipefail
+          bash build-zip.sh
+          # build-zip.sh writes ../{slug}-{version}.zip
+          ZIP="$(ls "$GITHUB_WORKSPACE"/../*.zip | head -1)"
+          if [ -z "$ZIP" ] || [ ! -f "$ZIP" ]; then
+            echo "::error::build-zip.sh produced no ZIP"; exit 1
+          fi
+          FN="$(basename "$ZIP")"          # polyglot-translate-woocommerce-3.2.0.zip
+          BASE="${FN%.zip}"                # polyglot-translate-woocommerce-3.2.0
+          VER="${BASE##*-}"                # 3.2.0
+          SLUG="${BASE%-*}"                # polyglot-translate-woocommerce
+          echo "zip=$ZIP"        >> "$GITHUB_OUTPUT"
+          echo "filename=$FN"    >> "$GITHUB_OUTPUT"
+          echo "slug=$SLUG"      >> "$GITHUB_OUTPUT"
+          echo "version=$VER"    >> "$GITHUB_OUTPUT"
+          echo "Built $SLUG v$VER ($FN)"
+
+      - name: Verify tag matches plugin header version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME#v}"
+          if [ "$TAG" != "${{ steps.build.outputs.version }}" ]; then
+            echo "::error::Tag '$TAG' != plugin header version '${{ steps.build.outputs.version }}'. Bump the Version: header or fix the tag."
+            exit 1
+          fi
+          echo "Tag $TAG matches plugin header — OK"
+
+      - name: Publish to Polyglot Cloud (R2)
+        if: github.event_name == 'push' || github.event.inputs.dry_run == 'false'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.ATC_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.ATC_R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          # Restore pre-2.23 aws-cli behavior — the new default integrity
+          # checksums break Cloudflare R2 (S3-compatible, not S3).
+          AWS_REQUEST_CHECKSUM_CALCULATION: WHEN_REQUIRED
+          AWS_RESPONSE_CHECKSUM_VALIDATION: WHEN_REQUIRED
+        run: |
+          set -euo pipefail
+          SLUG="${{ steps.build.outputs.slug }}"
+          VER="${{ steps.build.outputs.version }}"
+          ZIP="${{ steps.build.outputs.zip }}"
+          ACCOUNT="${{ secrets.ATC_R2_ACCOUNT_ID }}"
+          CHECKSUM="$(sha256sum "$ZIP" | awk '{print $1}')"
+          echo "Uploading $SLUG/$SLUG-$VER.zip (sha256 $CHECKSUM) → polyglot-modules"
+          aws s3 cp "$ZIP" "s3://polyglot-modules/$SLUG/$SLUG-$VER.zip" \
+            --endpoint-url "https://$ACCOUNT.r2.cloudflarestorage.com" \
+            --content-type application/zip \
+            --metadata "checksum-sha256=$CHECKSUM,module-version=$VER"
+          echo "Published $SLUG v$VER — plugins will see it on next /v1/updates/check poll."
+
+      - name: Verify cloud sees the new version
+        if: github.event_name == 'push' || github.event.inputs.dry_run == 'false'
+        run: |
+          set -euo pipefail
+          SLUG="${{ steps.build.outputs.slug }}"
+          VER="${{ steps.build.outputs.version }}"
+          # Public marketplace endpoint (no auth) reflects R2 state after cache TTL.
+          # Best-effort check — R2 is strongly consistent, so the object is
+          # readable immediately; the marketplace list has a short Redis TTL.
+          for i in 1 2 3 4 5 6; do
+            OUT="$(curl -fsS "https://api.polyglot-translate.cloud/v1/modules/marketplace" || true)"
+            if echo "$OUT" | grep -q "\"$VER\""; then
+              echo "Cloud marketplace reports $SLUG $VER ✓"; exit 0
+            fi
+            echo "attempt $i: cloud not yet reporting $VER, waiting…"; sleep 20
+          done
+          echo "::warning::Cloud marketplace did not report $VER within ~2min (Redis cache TTL). The ZIP is in R2; the update endpoint will serve it. Verify manually if needed."
