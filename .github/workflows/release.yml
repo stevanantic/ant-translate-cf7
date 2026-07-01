@@ -97,20 +97,30 @@ jobs:
             --metadata "checksum-sha256=$CHECKSUM,module-version=$VER"
           echo "Published $SLUG v$VER — plugins will see it on next /v1/updates/check poll."
 
-      - name: Verify cloud sees the new version
+      - name: Verify object is in R2 (source of truth for /v1/updates/check)
         if: github.event_name == 'push' || github.event.inputs.dry_run == 'false'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.ATC_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.ATC_R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: WHEN_REQUIRED
+          AWS_RESPONSE_CHECKSUM_VALIDATION: WHEN_REQUIRED
         run: |
           set -euo pipefail
           SLUG="${{ steps.build.outputs.slug }}"
           VER="${{ steps.build.outputs.version }}"
-          # Public marketplace endpoint (no auth) reflects R2 state after cache TTL.
-          # Best-effort check — R2 is strongly consistent, so the object is
-          # readable immediately; the marketplace list has a short Redis TTL.
-          for i in 1 2 3 4 5 6; do
-            OUT="$(curl -fsS "https://api.polyglot-translate.cloud/v1/modules/marketplace" || true)"
-            if echo "$OUT" | grep -q "\"$VER\""; then
-              echo "Cloud marketplace reports $SLUG $VER ✓"; exit 0
-            fi
-            echo "attempt $i: cloud not yet reporting $VER, waiting…"; sleep 20
-          done
-          echo "::warning::Cloud marketplace did not report $VER within ~2min (Redis cache TTL). The ZIP is in R2; the update endpoint will serve it. Verify manually if needed."
+          ACCOUNT="${{ secrets.ATC_R2_ACCOUNT_ID }}"
+          # Authoritative check: the plugin update path (getLatestModuleVersion →
+          # listModuleVersions) reads R2 directly, NOT the /v1/modules/marketplace
+          # DB table (that table is a separate dashboard-display surface). So we
+          # confirm the object landed in R2 — R2 is strongly consistent, so a
+          # successful HEAD right after PUT guarantees the update endpoint serves it.
+          META="$(aws s3api head-object \
+            --bucket polyglot-modules \
+            --key "$SLUG/$SLUG-$VER.zip" \
+            --endpoint-url "https://$ACCOUNT.r2.cloudflarestorage.com" \
+            --query 'Metadata."checksum-sha256"' --output text)"
+          if [ -z "$META" ] || [ "$META" = "None" ]; then
+            echo "::error::Object $SLUG-$VER.zip present but missing checksum-sha256 metadata"; exit 1
+          fi
+          echo "R2 confirms $SLUG/$SLUG-$VER.zip (checksum $META) — plugins will update on next poll. ✓"
