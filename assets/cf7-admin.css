@@ -1,0 +1,102 @@
+/**
+ * Polyglot Translate for Contact Form 7 — admin tab styles.
+ * Reuses core --pgt-* design tokens; only CF7-tab-specific layout lives here.
+ */
+
+/* Header: the core .pgt-card-header sets justify-content:space-between (for
+ * cards that have a right-aligned action). This card has only an icon + title,
+ * so keep them together on the left. Scoped so core cards are untouched. */
+.pgt-cf7-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: flex-start;
+}
+
+.pgt-cf7-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.pgt-cf7-table th,
+.pgt-cf7-table td {
+    padding: 12px 14px;
+    text-align: start;
+    vertical-align: middle;
+}
+
+.pgt-cf7-table thead th {
+    font-weight: 600;
+    color: var(--pgt-gray-700, #374151);
+    border-bottom: 1px solid var(--pgt-gray-200, #e5e7eb);
+}
+
+/* Subtle row separation so each form reads as its own line. */
+.pgt-cf7-table tbody tr + tr td {
+    border-top: 1px solid var(--pgt-gray-100, #f3f4f6);
+}
+
+/* Form name = link that opens the form in Contact Form 7. */
+.pgt-cf7-name {
+    word-break: break-word;
+}
+
+.pgt-cf7-name a {
+    text-decoration: none;
+    color: var(--pgt-gray-900, #111827);
+    font-size: 14px;
+}
+
+.pgt-cf7-name a:hover,
+.pgt-cf7-name a:focus-visible {
+    color: var(--pgt-primary, #4f46e5);
+    text-decoration: underline;
+}
+
+.pgt-cf7-prog {
+    display: block;
+    text-decoration: none;
+    min-width: 120px;
+}
+
+.pgt-cf7-prog .pgt-progress {
+    margin-bottom: 4px;
+}
+
+.pgt-cf7-prog-label {
+    color: var(--pgt-gray-600, #4b5563);
+}
+
+.pgt-cf7-prog:hover .pgt-progress-fill {
+    opacity: 0.85;
+}
+
+.pgt-cf7-prog:hover .pgt-cf7-prog-label {
+    color: var(--pgt-primary, #4f46e5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pgt-cf7-prog:hover .pgt-progress-fill {
+        opacity: 1;
+    }
+}
+
+@media (forced-colors: active) {
+    .pgt-cf7-table thead th {
+        border-bottom: 1px solid CanvasText;
+    }
+    .pgt-cf7-prog .pgt-progress-fill {
+        forced-color-adjust: none;
+    }
+}
+
+@media print {
+    .pgt-cf7-tab .pgt-btn,
+    .pgt-cf7-tab .pgt-btn-link {
+        display: none;
+    }
+    .pgt-cf7-table th,
+    .pgt-cf7-table td {
+        border: 1px solid #000;
+    }
+}

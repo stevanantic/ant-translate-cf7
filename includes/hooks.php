@@ -522,7 +522,7 @@ add_filter('wpcf7_mail_components', function ($components, $form, $mail) {
  * ========================================================================== */
 
 add_filter('polyglot_one_click_catalog_strings', function (array $strings, array $seen) {
-    if (!function_exists('wpcf7_contact_form')) {
+    if (!function_exists('wpcf7_contact_form') || !function_exists('polyglot_cf7_collect_form_strings')) {
         return $strings;
     }
 
@@ -537,71 +537,31 @@ add_filter('polyglot_one_click_catalog_strings', function (array $strings, array
         return $strings;
     }
 
-    $cf7_extra = [];
+    $cf7_extra   = [];
     $start_count = count($strings);
 
     $form_ids = get_posts([
-        'post_type'   => 'wpcf7_contact_form',
-        'post_status' => 'any',
-        'numberposts' => 200,
-        'fields'      => 'ids',
+        'post_type'     => 'wpcf7_contact_form',
+        'post_status'   => 'publish',
+        'numberposts'   => 200,
+        'fields'        => 'ids',
+        'no_found_rows' => true,
     ]);
 
+    // Single source of truth: the same collector that feeds the editor catalog,
+    // so the bulk path and per-form context (`cf7:<id>`) never disagree.
     foreach ($form_ids as $form_id) {
-        $cf7 = wpcf7_contact_form($form_id);
-        if (!$cf7) {
-            continue;
-        }
-
-        // Form template text (labels, placeholders — strip CF7 tags).
-        $form_text = $cf7->prop('form');
-        if (is_string($form_text)) {
-            $plain = trim(wp_strip_all_tags(preg_replace('/\[[^\]]+\]/', '', $form_text)));
-            foreach (preg_split('/[\r\n]+/', $plain) as $line) {
-                $line = trim($line);
-                $key  = md5($line);
-                if ($line !== '' && mb_strlen($line) >= 2 && !isset($seen[$key])) {
-                    $seen[$key] = true;
-                    $strings[]  = ['text' => $line, 'context' => 'cf7:' . $form_id, 'priority' => 2];
-                }
-            }
-        }
-
-        // Messages (validation, success, error).
-        $messages = $cf7->prop('messages');
-        if (is_array($messages)) {
-            foreach ($messages as $msg) {
-                if (!is_string($msg) || $msg === '') {
-                    continue;
-                }
-                $key = md5($msg);
-                if (!isset($seen[$key])) {
-                    $seen[$key] = true;
-                    $strings[]  = ['text' => $msg, 'context' => 'cf7:messages', 'priority' => 2];
-                }
-            }
-        }
-
-        // Mail subject + body (strip CF7 tags for translatable text).
-        foreach (['mail', 'mail_2'] as $mail_prop) {
-            $mail = $cf7->prop($mail_prop);
-            if (!is_array($mail)) {
+        foreach (polyglot_cf7_collect_form_strings((int) $form_id) as $text) {
+            $key = md5($text);
+            if (isset($seen[$key])) {
                 continue;
             }
-            if ($mail_prop === 'mail_2' && empty($mail['active'])) {
-                continue;
-            }
-            foreach (['subject', 'body'] as $field) {
-                if (!isset($mail[$field]) || !is_string($mail[$field])) {
-                    continue;
-                }
-                $text = trim(wp_strip_all_tags(preg_replace('/\[[^\]]+\]/', '', $mail[$field])));
-                $key  = md5($text);
-                if ($text !== '' && mb_strlen($text) >= 3 && !isset($seen[$key])) {
-                    $seen[$key] = true;
-                    $strings[]  = ['text' => $text, 'context' => 'cf7:mail', 'priority' => 3];
-                }
-            }
+            $seen[$key] = true;
+            $strings[]  = [
+                'text'     => $text,
+                'context'  => 'cf7:' . (int) $form_id,
+                'priority' => 2,
+            ];
         }
     }
 

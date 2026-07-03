@@ -1,17 +1,16 @@
 <?php
 /**
  * Plugin Name:       Polyglot Translate for Contact Form 7
- * Plugin URI:        https://polyglot-translate.cloud/wordpress-plugin/addons/cf7/
+ * Plugin URI:        https://polyglot-translate.cloud/wordpress-translate-plugin/addons/cf7/
  * Description:       Contact Form 7 integration for Polyglot Translate – translates form fields, mail templates (with CF7 tag safety), messages, and AJAX responses.
- * Version:           3.1.1
+ * Version:           3.2.2
  * CF7 requires at least: 5.2
  * Requires at least: 5.8
  * Requires PHP:      7.4
  * Author:            Polyglot Translate
  * Author URI:        https://polyglot-translate.cloud/
  * License:           GPL-2.0-or-later
- * Text Domain:       polyglot-translate-cf7
- * Domain Path:       /languages
+ * Text Domain:       polyglot-translate
  *
  * Requires Plugins:  polyglot-translate
  *
@@ -22,7 +21,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('POLYGLOT_CF7_VERSION', '3.1.1');
+define('POLYGLOT_CF7_VERSION', '3.2.2');
 define('POLYGLOT_CF7_FILE', __FILE__);
 define('POLYGLOT_CF7_DIR', plugin_dir_path(__FILE__));
 define('POLYGLOT_CF7_URL', plugin_dir_url(__FILE__));
@@ -69,8 +68,10 @@ if (!function_exists('polyglot_cf7_maybe_migrate')) {
  * Initialize after all plugins loaded.
  */
 add_action('plugins_loaded', function () {
-    // i18n: load translations early.
-    load_plugin_textdomain('polyglot-translate-cf7', false, dirname(plugin_basename(__FILE__)) . '/languages');
+    // i18n: this module's user-facing strings now use the CORE 'polyglot-translate'
+    // text domain (KI-171), which core loads on `init`. The module shipped no
+    // languages/ files of its own, so its old `polyglot-translate-cf7` domain
+    // rendered English even on translated sites. No per-module load needed.
 
     // Check dependencies – core plugin must be active.
     if (!defined('POLYGLOT_VERSION')) {
@@ -79,10 +80,10 @@ add_action('plugins_loaded', function () {
                 return;
             }
             echo '<div class="notice notice-error"><p>';
-            echo '<strong>' . esc_html__('Polyglot Translate for Contact Form 7', 'polyglot-translate-cf7') . '</strong> ';
-            echo esc_html__('requires', 'polyglot-translate-cf7') . ' ';
-            echo '<strong>' . esc_html__('Polyglot Translate', 'polyglot-translate-cf7') . '</strong> ';
-            echo esc_html__('to be installed and active.', 'polyglot-translate-cf7');
+            echo '<strong>' . esc_html__('Polyglot Translate for Contact Form 7', 'polyglot-translate') . '</strong> ';
+            echo esc_html__('requires', 'polyglot-translate') . ' ';
+            echo '<strong>' . esc_html__('Polyglot Translate', 'polyglot-translate') . '</strong> ';
+            echo esc_html__('to be installed and active.', 'polyglot-translate');
             echo '</p></div>';
         });
         return;
@@ -109,7 +110,11 @@ add_action('plugins_loaded', function () {
 
     // CF7 addon is free: load translation hooks whenever CF7 is present.
     if (defined('WPCF7_VERSION')) {
+        require_once POLYGLOT_CF7_DIR . 'includes/discovery.php';
         require_once POLYGLOT_CF7_DIR . 'includes/hooks.php';
+        if (is_admin()) {
+            require_once POLYGLOT_CF7_DIR . 'includes/admin.php';
+        }
     } else {
         // CF7 not active — show notice.
         add_action('admin_notices', function () {
@@ -117,8 +122,8 @@ add_action('plugins_loaded', function () {
                 return;
             }
             echo '<div class="notice notice-warning"><p>';
-            echo '<strong>' . esc_html__('Polyglot Translate for Contact Form 7', 'polyglot-translate-cf7') . '</strong>: ';
-            echo esc_html__('Contact Form 7 is not active. The addon will remain dormant until CF7 is activated.', 'polyglot-translate-cf7');
+            echo '<strong>' . esc_html__('Polyglot Translate for Contact Form 7', 'polyglot-translate') . '</strong>: ';
+            echo esc_html__('Contact Form 7 is not active. The addon will remain dormant until CF7 is activated.', 'polyglot-translate');
             echo '</p></div>';
         });
     }
