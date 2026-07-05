@@ -9,6 +9,7 @@
  *
  * @package PGT_Translate_CF7
  * @since   1.0.0
+ * @license GPL-2.0-or-later
  */
 
 if (!defined('ABSPATH')) {

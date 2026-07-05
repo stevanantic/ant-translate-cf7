@@ -3,7 +3,7 @@
  * Plugin Name:       Polyglot Translate for Contact Form 7
  * Plugin URI:        https://polyglot-translate.cloud/wordpress-translate-plugin/addons/cf7/
  * Description:       Contact Form 7 integration for Polyglot Translate – translates form fields, mail templates (with CF7 tag safety), messages, and AJAX responses.
- * Version:           3.2.2
+ * Version:           3.2.4
  * CF7 requires at least: 5.2
  * Requires at least: 5.8
  * Requires PHP:      7.4
@@ -15,13 +15,14 @@
  * Requires Plugins:  polyglot-translate
  *
  * @package PGT_Translate_CF7
+ * @license GPL-2.0-or-later
  */
 
 if (!defined('ABSPATH')) {
     exit;
 }
 
-define('POLYGLOT_CF7_VERSION', '3.2.2');
+define('POLYGLOT_CF7_VERSION', '3.2.4');
 define('POLYGLOT_CF7_FILE', __FILE__);
 define('POLYGLOT_CF7_DIR', plugin_dir_path(__FILE__));
 define('POLYGLOT_CF7_URL', plugin_dir_url(__FILE__));
@@ -110,18 +111,25 @@ add_action('plugins_loaded', function () {
 
     // CF7 addon is free: load translation hooks whenever CF7 is present.
     if (defined('WPCF7_VERSION')) {
+        // Host present — remember it so a later CF7 deactivation can explain the
+        // dormancy instead of the addon silently going dark.
+        if (!get_option('polyglot_cf7_host_seen')) {
+            update_option('polyglot_cf7_host_seen', 1);
+        }
         require_once POLYGLOT_CF7_DIR . 'includes/discovery.php';
         require_once POLYGLOT_CF7_DIR . 'includes/hooks.php';
         if (is_admin()) {
             require_once POLYGLOT_CF7_DIR . 'includes/admin.php';
         }
-    } else {
-        // CF7 not active — show notice.
+    } elseif (get_option('polyglot_cf7_host_seen')) {
+        // Silent dormancy: Lite bundles this module on disk, so a site that never
+        // had Contact Form 7 must NOT be nagged. Only warn if CF7 was previously
+        // active here (host went away). Dismissible.
         add_action('admin_notices', function () {
             if (!current_user_can('manage_options')) {
                 return;
             }
-            echo '<div class="notice notice-warning"><p>';
+            echo '<div class="notice notice-warning is-dismissible"><p>';
             echo '<strong>' . esc_html__('Polyglot Translate for Contact Form 7', 'polyglot-translate') . '</strong>: ';
             echo esc_html__('Contact Form 7 is not active. The addon will remain dormant until CF7 is activated.', 'polyglot-translate');
             echo '</p></div>';
